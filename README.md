@@ -16,7 +16,7 @@ specific _thing_ it needs to extend, which classes are better suited for.
 
 ## Philosophy
 
-* Create "extendable" (name TBD) classes with a special metaclass
+* Create "extendable" classes ~with a special metaclass~ (might be added later)
 * Create "plugin" classes with a special metaclass
 * When a plugin is loaded, call `reinitialize-instance` on the extendable class
 to add the plugin class as a direct superclass
@@ -35,20 +35,24 @@ add the plugin superclasses.
 
 ## API
 
-* `defplugin`: defines a plugin class. Like `defclass`, but sets the metaclass and more?
-Also accepts the name of the class to extend and enables itself automatically.
-* `defextendable` (?): defines an extendable class. Like `defclass`.
-* `enable`: enables a plugin by redefining the extendable class(es).
-* `disable`: disables a plugin by redefining the extendable class(es).
-* `enable-all`: enables all plugins for a given extendable class.
-* `disable-all`: disables all plugins for a given extendable class.
-* Some inspection APIs to list plugins, etc. Maybe functional interfaces for `defplugin` and the like.
-
-Maybe `enable` and `disable` should optionally take the specific extendable class to
-enable or disable? Or they dispatch on the metaclasses of their arguments? So:
-* `(enable plugin)` - enable `plugin` on all compatible extendables
-* `(disable extendable)` - disable all plugins on `extendable`
-&c.
+* `(defplugin name direct-superclasses direct-slots options)`: defines a plugin class.
+Like `defclass`, but sets the metaclass and handles automatically enabling the plugin.
+Two additional class options are permitted:
+  * `:extends <extendables>`, which takes a class name or list of class names to extend.
+  * `:enable <T/NIL>` (default `T`), which specifies whether or not to enable the plugin
+  by default on all classes listed in the `:extends` option.
+* `(enable plugin &optional extendable)`: enables a plugin by redefining the extendable
+class(es).
+* `(disable plugin &optional extendable)`: disables a plugin by redefining the extendable
+class(es).
+* `(enabled-plugins extendable)`: returns a list of all plugin class instances currently
+enabled on `extendable`.
+* `(disable-all-plugins extendable)`: disables all plugins enabled on `extendable`.
+All `plugin` and `extendable` arguments can be either a class name (symbol) or instance.
+Additionally, `enable` and `disable` accept `NIL` as shorthand for all classes specified in
+the plugin's `:extends` class option, as well as a list of class names/instances to process
+in bulk. In `enabled-plugins` and `disable-all-plugins`, instances of the extendable class
+are also accepted.
 
 N.B.: it is expected this library is used with package local nicknames or similar,
 not just `use`d. That way, the API functions are, e.g., `plug:enable` or similar.
