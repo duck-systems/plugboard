@@ -1,5 +1,5 @@
 ;;;;
-;;;; Plug test package
+;;;; Plugboard test package
 ;;;;
-(defpackage #:systems.duck.plug/tests
-  (:use #:cl #:systems.duck.plug))
+(defpackage #:systems.duck.plugboard/tests
+  (:use #:cl #:systems.duck.plugboard))

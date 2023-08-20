@@ -1,9 +1,9 @@
 ;;;;
 ;;;; Plug tests
 ;;;;
-(in-package #:systems.duck.plug/tests)
+(in-package #:systems.duck.plugboard/tests)
 
-(5am:def-suite* :plug-tests)
+(5am:def-suite* :plugboard-tests)
 
 ;;;
 ;;; Test classes, plugins, and methods

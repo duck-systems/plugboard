@@ -1,4 +1,4 @@
-# Plug - a plugin utility
+# Plugboard - a plugin utility
 
 I needed a plugin system, but the existing options weren't meeting my needs.
 
@@ -64,7 +64,7 @@ or similar, not just `use`d. That way, the API functions are, e.g., `plug:enable
 ## Examples
 
 In the following examples, it is assumed that `plug` is defined as a local nickname for
-`systems.duck.plug`.
+`systems.duck.plugboard`.
 
 Plugin for providing new command line options:
 ```lisp
