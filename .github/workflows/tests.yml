@@ -1,0 +1,82 @@
+# Run unit tests
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+      branches: [ "main" ]
+  workflow_dispatch:
+
+
+jobs:
+  test:
+    name: ${{ matrix.lisp }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Each combination of lisp and os are tested
+      matrix:                 # Support more later
+        lisp: [sbcl-bin]      # [sbcl-bin, ccl-bin]
+        os: [ubuntu-latest]   # [windows-latest, ubuntu-latest, macOS-latest]
+
+    steps:
+      # This action checks out our code in the working directory
+      - uses: actions/checkout@v3
+      
+      # setup-lisp requires an env variable to be set, not matrix.lisp
+      - name: Set LISP env var
+        run: echo "LISP=${{ matrix.lisp }}" >> $GITHUB_ENV
+
+      # Set up and cache Lisp install
+      - name: Grant All Perms to Make Cache Restoring Possible
+        run: |
+          sudo mkdir -p /usr/local/etc/roswell
+          sudo chown "${USER}" /usr/local/etc/roswell
+          # Here the ros binary will be restored:
+          sudo chown "${USER}" /usr/local/bin
+      - name: Get Current Month
+        id: current-month
+        run: |
+          echo "::set-output name=value::$(date -u '+%Y-%m')"
+      - name: Cache Roswell Setup
+        id: cache
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-roswell
+        with:
+          path: |
+            /usr/local/bin/ros
+            ~/.cache/common-lisp/
+            ~/.config/common-lisp/source-registry.conf.d
+            ~/.roswell
+            /usr/local/etc/roswell
+            .qlot
+          key: "${{ steps.current-month.outputs.value }}-${{ env.cache-name }}-${{ runner.os }}-${{ matrix.lisp }}-${{ hashFiles('qlfile.lock') }}"
+      - name: Restore Path To Cached Files
+        run: |
+          echo $HOME/.roswell/bin >> $GITHUB_PATH
+          echo .qlot/bin >> $GITHUB_PATH
+        if: steps.cache.outputs.cache-hit == 'true'
+      - uses: 40ants/setup-lisp@v2
+        if: steps.cache.outputs.cache-hit != 'true'
+
+      # These steps run our tests
+      # Windows needs to be run with the msys2 shell due to how roswell is installed
+      - name: Run tests (Non-Windows)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          # Install the roswell script for the test library
+          ros install neil-lindquist/ci-utils # for run-fiveam
+          
+          # Run the tests
+          run-fiveam -e t -l systems.duck.plugboard/test :plugboard-tests
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          # Install the roswell script for the test library
+          ros install neil-lindquist/ci-utils # for run-fiveam
+          
+          # Run the tests
+          run-fiveam -e t -l systems.duck.plugboard/test :plugboard-tests
