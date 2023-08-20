@@ -36,11 +36,26 @@
 (defplugin plug5 () () (:extends quux) (:enable nil))
 (defplugin plug6 () () (:extends quux))
 
+;;;
+;;; For testing notification
+;;;
+(defextendable ext1 () ())
+(defvar *on-enabled-msg* nil)
+(defvar *on-disabled-msg* nil)
+(defmethod on-enabled ((ext ext1) plugin)
+  (push (cons ext plugin) *on-enabled-msg*))
+(defmethod on-disabled ((ext ext1) plugin plist)
+  (push (cons ext plugin) *on-disabled-msg*))
+
 (defun reset ()
-  "Resets all plugins to disabled"
+  "Resets all test data and sets all plugins to disabled"
   (disable-all-plugins 'foo)
   (disable-all-plugins 'bar)
-  (disable-all-plugins 'baz))
+  (disable-all-plugins 'baz)
+  (disable-all-plugins 'ext1)
+  (disable-all-plugins 'ext2)
+  (setf *on-enabled-msg* nil)
+  (setf *on-disabled-msg* nil))
 
 (5am:test enables/disables
   (reset)
@@ -95,3 +110,28 @@
 (5am:test auto-enable
   (5am:is (equal (list (find-class 'plug6) (find-class 'plug4))
                  (enabled-plugins 'quux))))
+
+(5am:test messages
+  (reset)
+  (enable 'plug1 'ext1)
+  (let ((ext1 (make-instance 'ext1)))
+    (5am:is (equal (list (cons ext1 (find-class 'plug1))) *on-enabled-msg*))
+    (enable 'plug2 'ext1)
+    (format nil "~a" ext1) ; Force U-I-F-R-C to be called on EXT1
+    (5am:is (equal (list (cons ext1 (find-class 'plug2))
+                         (cons ext1 (find-class 'plug1)))
+                   *on-enabled-msg*))
+    (let ((ext2 (make-instance 'ext1)))
+      (5am:is (equal (list (cons ext2 (find-class 'plug1))
+                           (cons ext2 (find-class 'plug2))
+                           (cons ext1 (find-class 'plug2))
+                           (cons ext1 (find-class 'plug1)))
+                     *on-enabled-msg*))
+      (disable 'plug1 'ext1)
+      (format nil "~a~a" ext1 ext2) ; Force U-I-F-R-C to be called
+      (5am:is-true (find (cons ext1 (find-class 'plug1))
+                         *on-disabled-msg*
+                         :test #'equal))
+      (5am:is-true (find (cons ext2 (find-class 'plug1))
+                         *on-disabled-msg*
+                         :test #'equal)))))

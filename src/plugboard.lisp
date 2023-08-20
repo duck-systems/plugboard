@@ -3,6 +3,9 @@
 ;;;;
 (in-package #:systems.duck.plugboard)
 
+;;;
+;;; Plugin metaclass
+;;;
 (defclass plugin-class (standard-class)
   ((extends :reader extends
             :type list ; of symbols
@@ -20,6 +23,9 @@
   (setf (slot-value class 'extends) extends))
 
 (defmacro defplugin (name direct-superclasses direct-slots &rest options)
+  "Defines a new plugin class named NAME like DEFCLASS. Class options can additionally contain :EXTENDS to list
+extendable classes to automatically extend, as well as :ENABLE to specify if the plugin should be enabled by
+default (defaults to T)."
   (push `(,(intern (concatenate 'string (symbol-name name) "$sentinel"))) direct-slots)
   `(progn
      (defclass ,name ,direct-superclasses ,direct-slots
@@ -29,9 +35,16 @@
          (when (or (null enable-opt) (second enable-opt))
            `((enable ',name))))))
 
+;;;
+;;; Extendable metaclass and object superclass
+;;;
 (defclass extendable-class (standard-class)
   ()
   (:documentation "Metaclass for extendable classes"))
+
+(defun extendable-class-p (class)
+  "Checks if CLASS is an instance of EXTENDABLE-CLASS"
+  (typep class 'extendable-class))
 
 (defclass extendable-object ()
   ((active-plugins :accessor active-plugins
@@ -41,29 +54,12 @@
   (:default-initargs :active-plugins nil)
   (:documentation "An extendable object"))
 
-(defgeneric on-enabled (instance plugin-class)
-  (:documentation "Called when PLUGIN-CLASS is enabled on INSTANCE")
-  (:method (instance plugin-class) nil))
-
-(defgeneric on-disabled (instance plugin-class property-list)
-  (:documentation "Called when PLUGIN-CLASS is disabled on INSTANCE")
-  (:method (instance plugin-class property-list) nil))
-
-(defun sync-plugins (instance prop-list)
-  "Synchronizes the list of active plugins and notifies on change"
-  (let* ((previous (active-plugins instance))
-         (actual (enabled-plugins instance))
-         (removed (set-difference previous actual))
-         (new (set-difference actual previous)))
-    (loop for plugin in removed do (on-disabled instance plugin prop-list))
-    (loop for plugin in new do (on-enabled instance plugin))
-    (setf (active-plugins instance) actual)))
-
-(defmethod initialize-instance :after ((instance extendable-object) &key)
-  "Syncs up the list of active plugins"
-  (sync-plugins instance nil))
+(defun extendablep (object)
+  "Checks if OBJECT is an EXTENDABLE-OBJECT"
+  (typep object 'extendable-object))
 
 (defmacro defextendable (name direct-superclasses direct-slots &rest options)
+  "Defines an extendable class named NAME like DEFCLASS."
   `(defclass ,name (,@direct-superclasses extendable-object) ,direct-slots
      ,@options
      (:metaclass extendable-class)))
@@ -165,6 +161,32 @@ See DISPATCH-PLUGIN-CALL for details of the PLUGIN and EXTENDABLE arguments."
 (defmethod mop:validate-superclass ((class extendable-class) (superclass standard-class)) t)
 (defmethod mop:validate-superclass ((class standard-class) (superclass plugin-class)) t)
 (defmethod mop:validate-superclass ((class extendable-class) (superclass plugin-class)) t)
+
+;;;
+;;; Listening for plugin updates on instances
+;;;
+
+(defgeneric on-enabled (instance plugin-class)
+  (:documentation "Called when PLUGIN-CLASS is enabled on INSTANCE")
+  (:method (instance plugin-class) nil))
+
+(defgeneric on-disabled (instance plugin-class property-list)
+  (:documentation "Called when PLUGIN-CLASS is disabled on INSTANCE")
+  (:method (instance plugin-class property-list) nil))
+
+(defun sync-plugins (instance prop-list)
+  "Synchronizes the list of active plugins and notifies on change"
+  (let* ((previous (active-plugins instance))
+         (actual (enabled-plugins instance))
+         (removed (set-difference previous actual))
+         (new (set-difference actual previous)))
+    (loop for plugin in removed do (on-disabled instance plugin prop-list))
+    (loop for plugin in new do (on-enabled instance plugin))
+    (setf (active-plugins instance) actual)))
+
+(defmethod initialize-instance :after ((instance extendable-object) &key)
+  "Syncs up the list of active plugins"
+  (sync-plugins instance nil))
 
 (defmethod update-instance-for-redefined-class :after ((instance extendable-object) added discarded plist &key)
   (sync-plugins instance plist))
