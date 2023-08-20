@@ -35,6 +35,7 @@ add the plugin superclasses.
 
 ## API
 
+* `plugin-class`: a metaclass for plugin classes, with predicate `(plugin-class-p class)`.
 * `(defplugin name direct-superclasses direct-slots options)`: defines a plugin class.
 Like `defclass`, but sets the metaclass and handles automatically enabling the plugin.
 Two additional class options are permitted:
@@ -54,5 +55,68 @@ the plugin's `:extends` class option, as well as a list of class names/instances
 in bulk. In `enabled-plugins` and `disable-all-plugins`, instances of the extendable class
 are also accepted.
 
-N.B.: it is expected this library is used with package local nicknames or similar,
-not just `use`d. That way, the API functions are, e.g., `plug:enable` or similar.
+## Notes
+
+This library depends on `closer-mop`, and therefore is portable across all implementations
+supported by `closer-mop`. It is expected this library is used with package local nicknames
+or similar, not just `use`d. That way, the API functions are, e.g., `plug:enable` or similar.
+
+## Examples
+
+In the following examples, it is assumed that `plug` is defined as a local nickname for
+`systems.duck.plug`.
+
+Plugin for providing new command line options:
+```lisp
+;;; Define a class we will extend
+(defclass command-line ()
+  ((built-in-options :reader built-in-options
+                    :initform (list "Option 1" "Option 2" "Option 3")
+                    :documentation "List of built-in options for this command"))
+  (:documentation "A class implementing a command line processor"))
+
+;;; Define a generic function. We want plugins to be able to add to the list of options,
+;;;  so we use a method combination of APPEND to accumulate results from all plugins
+(defgeneric options (cmd)
+  (:documentation "Returns a list of options for CMD")
+  (:method-combination append))
+
+;;; Define the primary method on the extendable class
+(defmethod options append ((cmd command-line))
+  (built-in-options cmd))
+
+;;; Define a plugin
+(plug:defplugin bonus-options ()
+  () ; No slots
+  (:documentation "A plugin that provides a couple bonus options")
+  (:extends command-line))
+
+;;; Define an extension with a method
+(defmethod options append ((plugin bonus-options))
+  (list "Bonus 1" "Bonus 2"))
+
+;;; Define another plugin, which provides randomized options
+(plug:defplugin random-options ()
+  ((words :reader words
+          :initform (list "Jean" "Francine" "Bill" "Frank")
+          :documentation "Words that will be randomly chosen"))
+  (:extends command-line)
+  (:documentation "A plugin that provides randomized options"))
+
+;;; Define a method that randomly chooses a word
+(defmethod options append ((plugin random-options))
+  (list (elt (words plugin) (random (length (words plugin))))))
+
+;;; Check and see
+(options (make-instance 'command-line))
+;; => ("Option 1" "Option 2" "Option 3" "Frank" "Bonus 1" "Bonus 2")
+```
+
+> [!NOTE]
+> As plugins get added as superclasses, any slots defined in plugins get added to the extending
+> class. Likewise, if a plugin is disabled, the slots are removed and wiped. You can easily
+> hook into the enabling process by defining methods on `SHARED-INITIALIZE` or
+> `UPDATE-INSTANCE-FOR-REDEFINED-CLASS`, but hooking into the disabling process is much harder.
+> Since the extended class itself is _redefined_, the existing class with the plugin no longer
+> exists by the time instances are being updated, so you cannot specialize on the plugin class.
+> That might require a second plugin to watch for plugin changes...
