@@ -24,8 +24,9 @@
      (defclass ,name ,direct-superclasses ,direct-slots
        (:metaclass plugin-class)
        ,@(remove :enable options :key #'first))
-     ,@(when (second (find :enable options :key #'first))
-         `((enable ',name)))))
+     ,@(let ((enable-opt (find :enable options :key #'first)))
+         (when (or (null enable-opt) (second enable-opt))
+           `((enable ',name))))))
 
 ;;;
 ;;; Metaclass machinery.

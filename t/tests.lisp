@@ -93,4 +93,5 @@
     (5am:is (equal '("BAR" "PLUG2" "PLUG3" "BASE") (coll bar)))))
 
 (5am:test auto-enable
-  (5am:is (equal (list (find-class 'plug4)) (enabled-plugins 'quux))))
+  (5am:is (equal (list (find-class 'plug6) (find-class 'plug4))
+                 (enabled-plugins 'quux))))
