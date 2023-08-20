@@ -16,7 +16,7 @@ specific _thing_ it needs to extend, which classes are better suited for.
 
 ## Philosophy
 
-* Create "extendable" classes ~with a special metaclass~ (might be added later)
+* Create "extendable" classes with a special metaclass (optional)
 * Create "plugin" classes with a special metaclass
 * When a plugin is loaded, call `reinitialize-instance` on the extendable class
 to add the plugin class as a direct superclass
@@ -24,9 +24,10 @@ to add the plugin class as a direct superclass
 
 Why use metaclasses? It isn't needed, per se, but it allows us to have some
 bonus behavior. We can **reset** extendable classes by removing all plugin classes
-from the direct superclasses. I can't think of a specific reason to have an extendable
-metaclass, though, other than documentation-related things? Or options like don't
-automatically enable plugins on load? Unclear.
+from the direct superclasses. Using the `EXTENDABLE-CLASS` metaclass and associated
+top-level object class `EXTENDABLE-OBJECT` are strictly optional; however, these
+classes are required to make `ON-ENABLED` and `ON-DISABLED` callbacks on instances
+work. 
 
 Actually extending behavior is then done through generic functions. Since we add our
 plugin classes as superclasses, the base extendable is the most-specific, followed
@@ -34,6 +35,8 @@ by the plugin classes. We'll probably have to be intentional about the order we
 add the plugin superclasses.
 
 ## API
+
+Plugin definition and usage:
 
 * `plugin-class`: a metaclass for plugin classes, with predicate `(plugin-class-p class)`.
 * `(defplugin name direct-superclasses direct-slots options)`: defines a plugin class.
@@ -44,11 +47,29 @@ Two additional class options are permitted:
   by default on all classes listed in the `:extends` option.
 * `(enable plugin &optional extendable)`: enables a plugin by redefining the extendable
 class(es).
+
+Extendable object definition and usage:
+
+* `extendable-class`: a metaclass for extendable classes, with predicate `(extendable-class-p class)`.
+* `extendable-object`: a mixin class for extendable objects, with predicate `(extendablep object)`.
+* `(defextendable name direct-superclasses direct-slots options)`: defines an extendable class
+with the proper metaclass and superclass.
 * `(disable plugin &optional extendable)`: disables a plugin by redefining the extendable
 class(es).
 * `(enabled-plugins extendable)`: returns a list of all plugin class instances currently
 enabled on `extendable`.
 * `(disable-all-plugins extendable)`: disables all plugins enabled on `extendable`.
+* `(on-enabled extendable-instance plugin-class)` [generic function]: called on extendable instances when
+plugin class `PLUGIN-CLASS` is enabled. Also called for each enabled plugin when a new instance is created.
+* `(on-disabled extendable-instance plugin-class property-list)` [generic function]: called on
+extendable instances when plugin class `PLUGIN-CLASS` is disabled. `PROPERTY-LIST` contains a plist of
+at least the slots and values from `PLUGIN-CLASS` that were removed from `EXTENDABLE-INSTANCE`.
+
+> [!NOTE]
+> The `ON-ENABLED` and `ON-DISABLED` callbacks use the `UPDATE-INSTANCE-FOR-REDEFINED-CLASS`
+> machinery, so the exact time these callbacks happen is implementation-defined, but no later
+> than the next time a slot is accessed in the instance (see CLHS 4.3.6).
+
 All `plugin` and `extendable` arguments can be either a class name (symbol) or instance.
 Additionally, `enable` and `disable` accept `NIL` as shorthand for all classes specified in
 the plugin's `:extends` class option, as well as a list of class names/instances to process
@@ -114,9 +135,6 @@ Plugin for providing new command line options:
 
 > [!NOTE]
 > As plugins get added as superclasses, any slots defined in plugins get added to the extending
-> class. Likewise, if a plugin is disabled, the slots are removed and wiped. You can easily
-> hook into the enabling process by defining methods on `SHARED-INITIALIZE` or
-> `UPDATE-INSTANCE-FOR-REDEFINED-CLASS`, but hooking into the disabling process is much harder.
-> Since the extended class itself is _redefined_, the existing class with the plugin no longer
-> exists by the time instances are being updated, so you cannot specialize on the plugin class.
-> That might require a second plugin to watch for plugin changes...
+> class. Likewise, if a plugin is disabled, the slots are removed and wiped. To hook into these
+> updates, define the extendable class with `DEFEXTENDABLE` and define methods on `ON-ENABLED`
+> and `ON-DISABLED`, which get called on instances when the active plugin set changes.
