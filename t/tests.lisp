@@ -53,7 +53,6 @@
   (disable-all-plugins 'bar)
   (disable-all-plugins 'baz)
   (disable-all-plugins 'ext1)
-  (disable-all-plugins 'ext2)
   (setf *on-enabled-msg* nil)
   (setf *on-disabled-msg* nil))
 
