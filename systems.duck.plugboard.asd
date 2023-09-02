@@ -13,6 +13,11 @@
   :components ((:file "package")
                (:file "plugboard")))
 
+(asdf:defsystem "systems.duck.plugboard/asdf"
+  :description "ASDF extension for specifying plugboard files"
+  :pathname "src"
+  :components ((:file "asdf")))
+
 (asdf:defsystem "systems.duck.plugboard/test"
   :description "Tests for plugboard"
   :author "Keith Johnson <quack@duck.systems>"

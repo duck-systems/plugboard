@@ -138,3 +138,30 @@ Plugin for providing new command line options:
 > class. Likewise, if a plugin is disabled, the slots are removed and wiped. To hook into these
 > updates, define the extendable class with `DEFEXTENDABLE` and define methods on `ON-ENABLED`
 > and `ON-DISABLED`, which get called on instances when the active plugin set changes.
+
+## ASDF Extension
+
+> [!WARNING]
+> This ASDF is experimental and subject to change! Requires ASDF 3.3.5 or later for full functionality.
+
+Instead of hard-coding plugins to load in your system definition, the
+`systems.duck.plugboard/asdf` extension adds a `:PLUGBOARD` component which reads plugin 
+system names out of a text file. This file is easier to update during a build process
+when the specific list of plugins is not specifically known ahead of time. Use:
+
+```lisp
+(asdf:defsystem "systems.duck.your-system"
+  ; ...
+  :defsystem-depends-on ("systems.duck.plugboard/asdf")
+  ; ...
+  :components ((:plugboard "plugins.txt")
+               ; ...
+               ))
+```
+
+where `plugins.txt` contains a single plugin system name on each line, e.g.:
+
+```
+systems.duck.example.plugin1
+systems.duck.example.plugin2
+```
